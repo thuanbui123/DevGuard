@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="../build/DevGuard.Client.props" />
+</Project>

@@ -1,0 +1,15 @@
+{
+  "name": "DotNet & PostgreSQL Workspace",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ckillarney.csharp-to-typescript"
+      ]
+    }
+  },
+  "forwardPorts": [5000, 5432]
+}

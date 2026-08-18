@@ -1,0 +1,70 @@
+@page "/settings"
+@using DevGuard.Client.Models
+@inject HttpClient Http
+
+<div class="container my-4">
+    <h3 class="mb-4">⚙️ Cấu Hình Hệ Thống DevGuard</h3>
+
+    @if (settings == null)
+    {
+        <p>Đang tải cấu hình từ database...</p>
+    }
+    else
+    {
+        <div class="card p-4 shadow-sm">
+            @foreach (var setting in settings)
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-bold">@setting.Key</label>
+                    <small class="text-muted d-block mb-1">@setting.Description</small>
+                    <div class="input-group">
+                        <input type="@(setting.Key.Contains("ApiKey") ? "password" : "text")" 
+                               class="form-control" 
+                               @bind="setting.Value" />
+                        <button class="btn btn-outline-primary" @onclick="() => SaveSetting(setting)">
+                            Lưu
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(alertMessage))
+    {
+        <div class="alert alert-success mt-3">@alertMessage</div>
+    }
+</div>
+
+@code {
+    private List<AppSettingDto>? settings;
+    private string alertMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        try
+        {
+            settings = await Http.GetFromJsonAsync<List<AppSettingDto>>("api/settings");
+        }
+        catch
+        {
+            settings = new();
+        }
+    }
+
+    private async Task SaveSetting(AppSettingDto setting)
+    {
+        var response = await Http.PostAsJsonAsync("api/settings", setting);
+        if (response.IsSuccessStatusCode)
+        {
+            alertMessage = $"Đã cập nhật thành công: {setting.Key}";
+            await Task.Delay(3000);
+            alertMessage = string.Empty;
+        }
+    }
+}

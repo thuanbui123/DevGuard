@@ -1,0 +1,6 @@
+@DevGuard.Api_HostAddress = http://localhost:5293
+
+GET {{DevGuard.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

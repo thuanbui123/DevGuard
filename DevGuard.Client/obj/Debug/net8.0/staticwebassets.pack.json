@@ -1,0 +1,61 @@
+{
+  "Files": [
+    {
+      "Id": "/workspaces/DevGuard/DevGuard.Client/bin/Debug/net8.0/wwwroot/_framework/blazor.webassembly.js",
+      "PackagePath": "staticwebassets/_framework/blazor.webassembly.js"
+    },
+    {
+      "Id": "/workspaces/DevGuard/DevGuard.Client/obj/Debug/net8.0/compressed/kdbh9cpix1.gz",
+      "PackagePath": "staticwebassets/_framework/blazor.webassembly.js.gz"
+    },
+    {
+      "Id": "/workspaces/DevGuard/DevGuard.Client/obj/Debug/net8.0/scopedcss/bundle/DevGuard.Client.styles.css",
+      "PackagePath": "staticwebassets/DevGuard.Client.styles.css"
+    },
+    {
+      "Id": "/workspaces/DevGuard/DevGuard.Client/wwwroot/css/app.css",
+      "PackagePath": "staticwebassets/css/app.css"
+    },
+    {
+      "Id": "/workspaces/DevGuard/DevGuard.Client/wwwroot/css/bootstrap/bootstrap.min.css",
+      "PackagePath": "staticwebassets/css/bootstrap/bootstrap.min.css"
+    },
+    {
+      "Id": "/workspaces/DevGuard/DevGuard.Client/wwwroot/css/bootstrap/bootstrap.min.css.map",
+      "PackagePath": "staticwebassets/css/bootstrap/bootstrap.min.css.map"
+    },
+    {
+      "Id": "/workspaces/DevGuard/DevGuard.Client/wwwroot/favicon.png",
+      "PackagePath": "staticwebassets/favicon.png"
+    },
+    {
+      "Id": "/workspaces/DevGuard/DevGuard.Client/wwwroot/icon-192.png",
+      "PackagePath": "staticwebassets/icon-192.png"
+    },
+    {
+      "Id": "/workspaces/DevGuard/DevGuard.Client/wwwroot/index.html",
+      "PackagePath": "staticwebassets/index.html"
+    },
+    {
+      "Id": "/workspaces/DevGuard/DevGuard.Client/wwwroot/sample-data/weather.json",
+      "PackagePath": "staticwebassets/sample-data/weather.json"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.DevGuard.Client.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.build.DevGuard.Client.props",
+      "PackagePath": "build\\DevGuard.Client.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.DevGuard.Client.props",
+      "PackagePath": "buildMultiTargeting\\DevGuard.Client.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.DevGuard.Client.props",
+      "PackagePath": "buildTransitive\\DevGuard.Client.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

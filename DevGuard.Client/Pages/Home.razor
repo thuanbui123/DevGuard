@@ -1,0 +1,308 @@
+﻿@page "/"
+@using DevGuard.Client.Models
+@inject IJSRuntime JSRuntime
+@inject HttpClient Http
+
+<div class="container-fluid my-3">
+    <div class="row">
+        <!-- Cột Bên Trái: Danh Sách Projects & Form Quét -->
+        <div class="col-md-4">
+            <div class="card p-3 shadow-sm mb-3">
+                <h5>🛡️ Thêm Project Cần Phân Tích</h5>
+                <div class="mb-2">
+                    <input class="form-control mb-2" @bind="newProject.Name" placeholder="Tên dự án" />
+                    <select class="form-select mb-2" @bind="newProject.ProjectSourceType">
+                        <option value="Git">Git Repository URL</option>
+                        <option value="LocalFolder">Thư mục Local</option>
+                    </select>
+                    <input class="form-control mb-2" @bind="newProject.PathOrUrl" placeholder="Đường dẫn / URL" />
+                    
+                    <!-- THÊM CÁC DÒNG NÀY -->
+                    <input class="form-control mb-2" @bind="newProject.RepoOwner" placeholder="GitHub Owner (ví dụ: my-user)" />
+                    <input class="form-control mb-2" @bind="newProject.RepoName" placeholder="GitHub Repo (ví dụ: my-app)" />
+                    <input class="form-control mb-2" type="password" @bind="newProject.GitHubToken" placeholder="GitHub Personal Access Token (PAT)" />
+
+                    <button class="btn btn-primary w-100" @onclick="SubmitProject" disabled="@isScanning">
+                        @(isScanning ? "Đang quét AI..." : "Bắt đầu Quét")
+                    </button>
+                </div>
+            </div>
+
+            <div class="list-group">
+                @if (projects != null)
+                {
+                    @foreach (var proj in projects)
+                    {
+                        <button class="list-group-item list-group-item-action @(selectedProject?.Id == proj.Id ? "active" : "")"
+                                @onclick="() => SelectProject(proj)">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">@proj.Name</h6>
+                                <span class="badge bg-danger">@proj.Issues.Count lỗi</span>
+                            </div>
+                            <small>@proj.PathOrUrl</small>
+                        </button>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Cột Bên Phải: Chi Tiết Lỗi & Khung Chat AI -->
+        <div class="col-md-8">
+            @if (selectedProject != null)
+            {
+                <!-- Thanh điều hướng Tab -->
+                <ul class="nav nav-tabs mb-3">
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "issues" ? "active" : "")" @onclick='() => activeTab = "issues"'>
+                            🔍 Cảnh báo Code (@selectedProject.Issues.Count)
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "chat" ? "active" : "")" @onclick='() => activeTab = "chat"'>
+                            💬 Hỏi Đáp Lịch Sử AI với Project
+                        </button>
+                    </li>
+                </ul>
+
+                @if (activeTab == "issues")
+                {
+                    <!-- Bộ Lọc Issue -->
+                    <div class="d-flex mb-2 gap-2">
+                        <select class="form-select w-25" @bind="filterSeverity">
+                            <option value="">Tất cả Severity</option>
+                            <option value="Critical">Critical</option>
+                            <option value="Warning">Warning</option>
+                        </select>
+                        <select class="form-select w-25" @bind="filterStatus">
+                            <option value="">Tất cả Trạng thái</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Rejected">Rejected</option>
+                        </select>
+                    </div>
+
+                    <!-- Bảng Danh Sách Issue -->
+                    <div class="card p-2 shadow-sm style="max-height: 500px; overflow-y: auto;"">
+                        <table class="table table-hover mt-3">
+                            <thead>
+                                <tr>
+                                    <th>Loại</th>
+                                    <th>Mức độ</th>
+                                    <th>Mã lỗi</th>
+                                    <th>Tệp</th>
+                                    <th>Nội dung</th>
+                                    <th>Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var issue in selectedProject.Issues)
+                                {
+                                    <tr>
+                                        <td>
+                                            @if (issue.RuleId.StartsWith("SEC-SECRET"))
+                                            {
+                                                <span class="badge bg-danger">🔑 Secret</span>
+                                            }
+                                            else if (issue.RuleId.StartsWith("CVE") || issue.RuleId.StartsWith("GHSA"))
+                                            {
+                                                <span class="badge bg-dark">📦 NuGet SCA</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-primary">🤖 AI Quality</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge @(issue.Severity == "Critical" ? "bg-danger" : "bg-warning text-dark")">
+                                                @issue.Severity
+                                            </span>
+                                        </td>
+                                        <td><code>@issue.RuleId</code></td>
+                                        <td><small>@issue.FilePath:@issue.LineNumber</small></td>
+                                        <td>@issue.Message</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info text-white" @onclick='() => AskAiAboutIssue(issue)'>Hỏi AI</button>
+                                            <button class="btn btn-sm btn-warning text-dark ms-1" @onclick='() => OpenFixModal(issue)'>🛠️ Auto-Fix</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else if (activeTab == "chat")
+                {
+                    <!-- Khung Chat AI Lưu Lịch Sử -->
+                    <div class="card p-3 shadow-sm">
+                        <div class="chat-box mb-3 p-2 bg-light border rounded" style="height: 350px; overflow-y: auto;">
+                            @foreach (var msg in chatHistory)
+                            {
+                                <div class="mb-2 p-2 rounded @(msg.Role == "user" ? "bg-primary text-white text-end ms-auto" : "bg-white text-start border")" style="max-width: 80%;">
+                                    <small class="d-block text-muted mb-1">@(msg.Role == "user" ? "Bạn" : "DevGuard AI")</small>
+                                    <div>@msg.Content</div>
+                                </div>
+                            }
+                        </div>
+                        <div class="input-group">
+                            <input class="form-control" @bind="userQuestion" @bind:event="oninput" placeholder="Hỏi AI về mã nguồn dự án này..." />
+                            <button class="btn btn-primary" @onclick="SendChatMessage">Gửi</button>
+                        </div>
+                    </div>
+                }
+            }
+            
+        </div>
+    </div>
+</div>
+@if (selectedIssueForFix != null)
+{
+    <div class="modal fade show d-block bg-dark bg-opacity-50" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">🛠️ AI Auto-Fix Code & 1-Click PR</h5>
+                    <button type="button" class="btn-close" @onclick="() => selectedIssueForFix = null"></button>
+                </div>
+                <div class="modal-body">
+                    <h6>File: <code>@selectedIssueForFix.FilePath</code></h6>
+                    <p class="text-danger">Lỗi: @selectedIssueForFix.Message</p>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="fw-bold">Code Gốc (Lỗi):</label>
+                            <pre class="bg-light p-2 border rounded"><code>@selectedIssueForFix.CodeSnippet</code></pre>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="fw-bold text-success">Code Gợi Ý Sửa (Gemini AI):</label>
+                            <textarea class="form-control font-monospace" rows="8" @bind="suggestedFixCode"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => selectedIssueForFix = null">Đóng</button>
+                    <button type="button" class="btn btn-success" @onclick="SubmitOneClickPr" disabled="@isCreatingPr">
+                        @(isCreatingPr ? "Đang đẩy PR lên GitHub..." : "🚀 Tạo Pull Request Lên GitHub")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<RegisteredProjectDto>? projects;
+    private RegisteredProjectDto? selectedProject;
+    private RegisteredProjectDto newProject = new();
+    private List<ChatMessageDto> chatHistory = new();
+    private string userQuestion = string.Empty;
+    private string activeTab = "issues";
+    private bool isScanning = false;
+
+    private string filterSeverity = "";
+    private string filterStatus = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private CodeIssueDto? selectedIssueForFix;
+    private string suggestedFixCode = string.Empty;
+    private bool isCreatingPr = false;
+
+    private async Task OpenFixModal(CodeIssueDto issue)
+    {
+        selectedIssueForFix = issue;
+        suggestedFixCode = "Đang kết nối Gemini AI để sửa code...";
+
+        var res = await Http.PostAsync($"api/issues/{issue.Id}/generate-fix", null);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<FixResponse>();
+            suggestedFixCode = data?.fixedCode ?? issue.CodeSnippet;
+        }
+    }
+    private async Task SubmitOneClickPr()
+    {
+        if (selectedIssueForFix == null) return;
+        isCreatingPr = true;
+
+        var response = await Http.PostAsJsonAsync($"api/issues/{selectedIssueForFix.Id}/create-pr", new { FixedCode = suggestedFixCode });
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<PrResponse>();
+            selectedIssueForFix.Status = "Approved";
+            selectedIssueForFix = null;
+            
+            if (!string.IsNullOrEmpty(result?.prUrl))
+            {
+                await JSRuntime.InvokeVoidAsync("open", result.prUrl, "_blank");
+            }
+        }
+        isCreatingPr = false;
+    }
+
+    public record FixResponse(string originalCode, string fixedCode);
+    public record PrResponse(string prUrl);
+
+    private async Task LoadProjects()
+    {
+        projects = await Http.GetFromJsonAsync<List<RegisteredProjectDto>>("api/projects");
+        if (projects?.Any() == true && selectedProject == null)
+        {
+            await SelectProject(projects.First());
+        }
+    }
+
+    private async Task SelectProject(RegisteredProjectDto proj)
+    {
+        selectedProject = proj;
+        await LoadChatHistory();
+    }
+
+    private async Task LoadChatHistory()
+    {
+        if (selectedProject == null) return;
+        chatHistory = await Http.GetFromJsonAsync<List<ChatMessageDto>>($"api/projects/{selectedProject.Id}/chat") ?? new();
+    }
+
+    private async Task SendChatMessage()
+    {
+        if (string.IsNullOrWhiteSpace(userQuestion) || selectedProject == null) return;
+
+        var userMsg = new ChatMessageDto { Content = userQuestion };
+        userQuestion = string.Empty;
+
+        var response = await Http.PostAsJsonAsync($"api/projects/{selectedProject.Id}/chat", userMsg);
+        await LoadChatHistory();
+    }
+
+    private async Task AskAiAboutIssue(CodeIssueDto issue)
+    {
+        activeTab = "chat";
+        userQuestion = $"Hãy giải thích chi tiết lỗi '{issue.Message}' tại file {issue.FilePath} dòng {issue.LineNumber} và cho tôi giải pháp refactor chuẩn nhất.";
+        await SendChatMessage();
+    }
+
+    private async Task SubmitProject()
+    {
+        if (string.IsNullOrWhiteSpace(newProject.PathOrUrl)) return;
+        isScanning = true;
+        await Http.PostAsJsonAsync("api/projects", newProject);
+        newProject = new();
+        await LoadProjects();
+        isScanning = false;
+    }
+
+    private async Task UpdateStatus(CodeIssueDto issue, string status)
+    {
+        await Http.PostAsync($"api/issues/{issue.Id}/status?status={status}", null);
+        issue.Status = status;
+    }
+
+    private IEnumerable<CodeIssueDto> FilteredIssues =>
+        selectedProject?.Issues.Where(i =>
+            (string.IsNullOrEmpty(filterSeverity) || i.Severity == filterSeverity) &&
+            (string.IsNullOrEmpty(filterStatus) || i.Status == filterStatus)
+        ) ?? Enumerable.Empty<CodeIssueDto>();
+}

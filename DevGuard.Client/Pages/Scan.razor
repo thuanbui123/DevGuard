@@ -1,0 +1,123 @@
+@page "/scan"
+@using DevGuard.Client.Models
+@inject HttpClient Http
+
+<div class="container mt-4">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="card-title mb-0">🛡️ DevGuard Code Scanner</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="folderPath" class="form-label">Đường dẫn thư mục dự án (Absolute Path):</label>
+                <input type="text" id="folderPath" class="form-control" placeholder="Ví dụ: C:\Projects\MySourceCode">
+            </div>
+            <button id="btnScan" class="btn btn-primary" onclick="startScan()">
+                <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                <span>Bắt đầu quét</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Khối hiển thị kết quả -->
+    <div id="resultContainer" class="d-none">
+        <div class="alert alert-info d-flex justify-content-between align-items-center">
+            <div>
+                <strong>Lượt quét ID:</strong> <span id="scanId"></span> |
+                <strong>Tổng số lỗi:</strong> <span id="totalIssues" class="badge bg-danger"></span>
+            </div>
+            <span id="scanStatus" class="badge bg-success">Completed</span>
+        </div>
+
+        <table class="table table-bordered table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Loại</th>
+                    <th>Mức độ</th>
+                    <th>File</th>
+                    <th>Dòng</th>
+                    <th>Mô tả</th>
+                </tr>
+            </thead>
+            <tbody id="issuesTableBody">
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+async function startScan() {
+    const folderPath = document.getElementById('folderPath').value.trim();
+    if (!folderPath) {
+        alert('Vui lòng nhập đường dẫn thư mục!');
+        return;
+    }
+
+    const btnScan = document.getElementById('btnScan');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const resultContainer = document.getElementById('resultContainer');
+    const tableBody = document.getElementById('issuesTableBody');
+
+    // UI Loading state
+    btnScan.disabled = true;
+    btnSpinner.classList.remove('d-none');
+    resultContainer.classList.add('d-none');
+    tableBody.innerHTML = '';
+
+    try {
+        const response = await fetch('/api/scan/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folderPath: folderPath })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            alert(data.message || 'Có lỗi xảy ra khi quét dự án!');
+            return;
+        }
+
+        // Đổ dữ liệu lên UI
+        document.getElementById('scanId').innerText = data.id;
+        document.getElementById('totalIssues').innerText = data.totalIssues;
+        document.getElementById('scanStatus').innerText = data.status;
+
+        if (data.issues && data.issues.length > 0) {
+            data.issues.forEach(issue => {
+                let badgeClass = "bg-warning text-dark";
+                let badgeText = issue.ruleId;
+
+                if (issue.ruleId.startsWith("SEC-SECRET")) {
+                    badgeClass = "bg-danger";
+                    badgeText = "🔑 Secret";
+                } else if (issue.ruleId.startsWith("CVE") || issue.ruleId.startsWith("GHSA")) {
+                    badgeClass = "bg-dark";
+                    badgeText = "📦 SCA";
+                }
+
+                const row = `
+                    <tr>
+                        <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+                        <td><span class="badge ${issue.severity === 'Critical' ? 'bg-danger' : 'bg-warning'}">${issue.severity}</span></td>
+                        <td><code>${issue.filePath}</code></td>
+                        <td>${issue.lineNumber}</td>
+                        <td>${issue.message}</td>
+                    </tr>
+                `;
+                tableBody.insertAdjacentHTML('beforeend', row);
+            });
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-success">🎉 Không phát hiện lỗi bảo mật nào!</td></tr>';
+        }
+
+        resultContainer.classList.remove('d-none');
+    } catch (err) {
+        alert('Không thể kết nối đến server!');
+        console.error(err);
+    } finally {
+        btnScan.disabled = false;
+        btnSpinner.classList.add('d-none');
+    }
+}
+</script>
